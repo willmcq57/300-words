@@ -39,24 +39,6 @@ async function init() {
 	const emailsInput = document.getElementById('emails');
 	const clearBtn = document.getElementById('clearBtn');
 	const saveBtn = document.getElementById('saveBtn');
-	const accountEmailInput = document.getElementById('accountEmail');
-
-	// Load account email
-	chrome.storage.local.get(['accountEmail'], res => {
-		if (res.accountEmail) {
-			accountEmailInput.value = res.accountEmail;
-		}
-	});
-
-	// Save account email on blur
-	accountEmailInput.addEventListener('blur', () => {
-		const email = accountEmailInput.value.trim();
-		chrome.storage.local.set({ accountEmail: email }, () => {
-			if (email) {
-				console.log('Account email saved:', email);
-			}
-		});
-	});
 
 	let lists = await getLists();
 	renderLists(lists);

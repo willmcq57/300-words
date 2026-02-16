@@ -28,6 +28,7 @@ async function init() {
 				showReplyDialog(resp, body);
 			} else if (resp && resp.sent) {
 				alert('Email sent successfully!');
+				showFormView();
 			} else if (resp && resp.error) {
 				alert('Error: ' + resp.error);
 			} else {
@@ -37,11 +38,20 @@ async function init() {
 	});
 }
 
+function showFormView() {
+	document.getElementById('formContainer').style.display = 'block';
+	const dialog = document.getElementById('replyDialog');
+	if (dialog) dialog.remove();
+}
+
 function showReplyDialog(emailData, body) {
+	// Hide the form
+	document.getElementById('formContainer').style.display = 'none';
+	
 	// Create styled dialog container
 	const dialog = document.createElement('div');
 	dialog.id = 'replyDialog';
-	dialog.style.cssText = 'border: 1px solid #ddd; padding: 16px; margin: 16px 0; background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1)';
+	dialog.style.cssText = 'border: 1px solid #ddd; padding: 16px; background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1)';
 	
 	const header = document.createElement('p');
 	header.textContent = '✓ Email already received today';
@@ -72,7 +82,7 @@ function showReplyDialog(emailData, body) {
 	textarea.id = 'replyText';
 	textarea.placeholder = 'Enter your reply message here...';
 	textarea.value = body;
-	textarea.style.cssText = 'width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; font-size: 13px; height: 80px; resize: vertical';
+	textarea.style.cssText = 'width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; font-size: 13px; height: 60px; resize: vertical';
 	dialog.appendChild(textarea);
 	
 	const buttonContainer = document.createElement('div');
@@ -87,7 +97,7 @@ function showReplyDialog(emailData, body) {
 	const cancelBtn = document.createElement('button');
 	cancelBtn.textContent = 'Cancel';
 	cancelBtn.style.cssText = 'flex: 1; padding: 10px; border: none; border-radius: 6px; background: #95a5a6; color: white; font-weight: 600; cursor: pointer; font-size: 13px';
-	cancelBtn.addEventListener('click', () => dialog.remove());
+	cancelBtn.addEventListener('click', () => showFormView());
 	buttonContainer.appendChild(cancelBtn);
 	
 	dialog.appendChild(buttonContainer);
@@ -99,7 +109,7 @@ function sendReply(messageId, replyBody) {
 	chrome.runtime.sendMessage({ action: 'replyToEmail', messageId, replyBody }, resp => {
 		if (resp && resp.sent) {
 			alert('Reply sent successfully!');
-			document.getElementById('replyDialog')?.remove();
+			showFormView();
 		} else {
 			alert('Error sending reply.');
 		}

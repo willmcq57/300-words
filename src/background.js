@@ -237,10 +237,12 @@ async function replyToEmail(token, messageId, replyBody) {
 	});
 	if (!msgResp.ok) throw new Error('Failed to fetch original message');
 	const msgData = await msgResp.json();
-	const threadId = msgData.threadId; // Get actual thread ID, not message ID
+	const threadId = msgData.threadId; // Get actual thread ID
 	const headers = msgData.payload?.headers || [];
 	const fromHeader = headers.find(h => h.name === 'From')?.value || '';
 	const subjectHeader = headers.find(h => h.name === 'Subject')?.value || '(no subject)';
+	const messageIdHeader = headers.find(h => h.name === 'Message-ID')?.value || '';
+	const referencesHeader = headers.find(h => h.name === 'References')?.value || '';
 	
 	// Extract email from From header
 	const emailMatch = fromHeader.match(/<(.+?)>/) || fromHeader.match(/([\w\.-]+@[\w\.-]+\.[\w]+)/);
@@ -251,12 +253,16 @@ async function replyToEmail(token, messageId, replyBody) {
 	// Get To header to reply to all recipients
 	const toHeader = headers.find(h => h.name === 'To')?.value || '';
 	
+	// Build references list: existing references + message-id
+	const inReplyTo = messageIdHeader || `<${messageId}@mail.gmail.com>`;
+	const references = referencesHeader ? `${referencesHeader} ${inReplyTo}` : inReplyTo;
+	
 	// Build reply message with In-Reply-To and References headers (reply to all)
 	const msg =
 		`To: ${toHeader}\r\n` +
 		`Subject: Re: ${subjectHeader}\r\n` +
-		`In-Reply-To: <${messageId}@mail.gmail.com>\r\n` +
-		`References: <${messageId}@mail.gmail.com>\r\n` +
+		`In-Reply-To: ${inReplyTo}\r\n` +
+		`References: ${references}\r\n` +
 		`Content-Type: text/plain; charset="UTF-8"\r\n` +
 		`\r\n` +
 		`${replyBody}`;
