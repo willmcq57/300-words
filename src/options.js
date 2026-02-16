@@ -211,11 +211,41 @@ clearBtn.addEventListener('click', async () => {
 	renderLists();
 });
 
+// ── Account ──
+
+const accountEmailEl = document.getElementById('accountEmail');
+const switchAccountBtn = document.getElementById('switchAccountBtn');
+
+function showAccountEmail(email) {
+	accountEmailEl.textContent = email || 'Not signed in';
+}
+
+function loadAccount() {
+	chrome.runtime.sendMessage({ action: 'getAccount' }, resp => {
+		showAccountEmail(resp?.email);
+	});
+}
+
+switchAccountBtn.addEventListener('click', () => {
+	accountEmailEl.textContent = 'Switching...';
+	switchAccountBtn.disabled = true;
+	chrome.runtime.sendMessage({ action: 'switchAccount' }, resp => {
+		switchAccountBtn.disabled = false;
+		if (resp?.email) {
+			showAccountEmail(resp.email);
+		} else {
+			showAccountEmail(null);
+			if (resp?.error) alert('Switch failed: ' + resp.error);
+		}
+	});
+});
+
 // ── Init ──
 
 async function init() {
 	lists = await getLists();
 	renderLists();
+	loadAccount();
 }
 
 document.addEventListener('DOMContentLoaded', init);

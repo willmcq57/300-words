@@ -10,7 +10,7 @@
 	},
 	"permissions": ["storage", "identity"],
 	"oauth2": {
-		"client_id": "732085666543-u7mking33ls63k4f2a972d7mmeamjpcd.apps.googleusercontent.com",
+		"client_id": "732085666543-fb1akg7jl1e5hp5s3ook02p7n4vi4ioi.apps.googleusercontent.com",
 		"scopes": [
 			"https://www.googleapis.com/auth/gmail.send",
 			"https://www.googleapis.com/auth/gmail.readonly",

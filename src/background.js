@@ -1,44 +1,96 @@
 // Background service worker: checks whether a list has been sent today,
 // records sends, and opens a compose window (mailto) as a basic send mechanism.
 
-// Helper to get auth token
-async function getAccountToken() {
-	return new Promise(resolve => {
-		chrome.identity.getAuthToken({ interactive: true }, token => {
-			resolve(token);
-		});
+const CLIENT_ID = '732085666543-fb1akg7jl1e5hp5s3ook02p7n4vi4ioi.apps.googleusercontent.com';
+const SCOPES = [
+	'https://www.googleapis.com/auth/gmail.send',
+	'https://www.googleapis.com/auth/gmail.readonly',
+	'https://www.googleapis.com/auth/userinfo.email'
+].join(' ');
+const REDIRECT_URI = chrome.identity.getRedirectURL();
+console.log('REDIRECT URI (add this to Google Cloud Console):', REDIRECT_URI);
+
+function buildAuthUrl(opts = {}) {
+	const params = new URLSearchParams({
+		client_id: CLIENT_ID,
+		redirect_uri: REDIRECT_URI,
+		response_type: 'token',
+		scope: SCOPES,
 	});
+	if (opts.loginHint) params.set('login_hint', opts.loginHint);
+	if (opts.prompt) params.set('prompt', opts.prompt);
+	return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+}
+
+function parseTokenFromRedirect(redirectUrl) {
+	const hash = new URL(redirectUrl).hash.substring(1);
+	const params = new URLSearchParams(hash);
+	const token = params.get('access_token');
+	const expiresIn = parseInt(params.get('expires_in'), 10);
+	if (!token) return null;
+	return { token, expiresAt: Date.now() + expiresIn * 1000 };
+}
+
+// Get a valid token, refreshing silently if possible
+async function getAccountToken() {
+	// 1. Check stored token
+	const stored = await chrome.storage.local.get(['authToken', 'authExpiresAt', 'accountEmail']);
+	if (stored.authToken && stored.authExpiresAt && Date.now() < stored.authExpiresAt - 60000) {
+		return stored.authToken;
+	}
+
+	// 2. Try silent refresh with login_hint
+	if (stored.accountEmail) {
+		try {
+			const url = buildAuthUrl({ loginHint: stored.accountEmail });
+			const redirectUrl = await chrome.identity.launchWebAuthFlow({ url, interactive: false });
+			const result = parseTokenFromRedirect(redirectUrl);
+			if (result) {
+				await chrome.storage.local.set({
+					authToken: result.token,
+					authExpiresAt: result.expiresAt,
+				});
+				return result.token;
+			}
+		} catch (e) {
+			console.log('Silent refresh failed, will prompt user:', e.message);
+		}
+	}
+
+	// 3. Interactive — shows account picker
+	const url = buildAuthUrl({ prompt: stored.accountEmail ? undefined : 'select_account' });
+	const redirectUrl = await chrome.identity.launchWebAuthFlow({ url, interactive: true });
+	const result = parseTokenFromRedirect(redirectUrl);
+	if (!result) throw new Error('Failed to get token from redirect');
+
+	// Fetch account email for this token
+	const email = await fetchEmailFromApi(result.token);
+	await chrome.storage.local.set({
+		authToken: result.token,
+		authExpiresAt: result.expiresAt,
+		accountEmail: email,
+		userEmail: email,
+	});
+	return result.token;
+}
+
+async function fetchEmailFromApi(token) {
+	const resp = await fetch('https://www.googleapis.com/gmail/v1/users/me/profile', {
+		headers: { Authorization: `Bearer ${token}` }
+	});
+	if (!resp.ok) throw new Error(`Gmail API error: ${resp.status}`);
+	const data = await resp.json();
+	return data.emailAddress;
 }
 
 // Helper to get the authenticated user's email
 async function getUserEmail(token) {
-	try {
-		// Check cache first
-		const cached = await new Promise(resolve => {
-			chrome.storage.local.get(['userEmail'], res => resolve(res.userEmail));
-		});
-		if (cached) {
-			console.log('getUserEmail: returning cached:', cached);
-			return cached;
-		}
-		
-		console.log('getUserEmail: fetching from Gmail API');
-		// Fetch from Gmail API
-		const resp = await fetch('https://www.googleapis.com/gmail/v1/users/me/profile', {
-			headers: { Authorization: `Bearer ${token}` }
-		});
-		if (!resp.ok) throw new Error(`Gmail API error: ${resp.status} ${resp.statusText}`);
-		const data = await resp.json();
-		const email = data.emailAddress;
-		
-		console.log('getUserEmail: got email from API:', email);
-		// Cache it
-		chrome.storage.local.set({ userEmail: email });
-		return email;
-	} catch (err) {
-		console.error('getUserEmail error:', err);
-		throw err;
-	}
+	const cached = await chrome.storage.local.get(['userEmail']);
+	if (cached.userEmail) return cached.userEmail;
+
+	const email = await fetchEmailFromApi(token);
+	await chrome.storage.local.set({ userEmail: email });
+	return email;
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -239,10 +291,11 @@ async function replyToEmail(token, messageId, replyBody) {
 	const msgData = await msgResp.json();
 	const threadId = msgData.threadId; // Get actual thread ID
 	const headers = msgData.payload?.headers || [];
-	const fromHeader = headers.find(h => h.name === 'From')?.value || '';
-	const subjectHeader = headers.find(h => h.name === 'Subject')?.value || '(no subject)';
-	const messageIdHeader = headers.find(h => h.name === 'Message-ID')?.value || '';
-	const referencesHeader = headers.find(h => h.name === 'References')?.value || '';
+	const hdr = name => headers.find(h => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+	const fromHeader = hdr('From');
+	const subjectHeader = hdr('Subject') || '(no subject)';
+	const messageIdHeader = hdr('Message-ID');
+	const referencesHeader = hdr('References');
 	
 	// Extract email from From header
 	const emailMatch = fromHeader.match(/<(.+?)>/) || fromHeader.match(/([\w\.-]+@[\w\.-]+\.[\w]+)/);
@@ -282,3 +335,42 @@ async function replyToEmail(token, messageId, replyBody) {
 	}
 	return sendResp.json();
 }
+
+// ── Account management messages (options page) ──
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+	if (msg.action === 'getAccount') {
+		chrome.storage.local.get(['accountEmail'], res => {
+			sendResponse({ email: res.accountEmail || null });
+		});
+		return true;
+	}
+
+	if (msg.action === 'switchAccount') {
+		(async () => {
+			// Clear stored auth so the next call is fully interactive
+			await chrome.storage.local.remove(['authToken', 'authExpiresAt', 'accountEmail', 'userEmail']);
+			try {
+				const url = buildAuthUrl({ prompt: 'select_account' });
+				const redirectUrl = await chrome.identity.launchWebAuthFlow({ url, interactive: true });
+				const result = parseTokenFromRedirect(redirectUrl);
+				if (!result) {
+					sendResponse({ error: 'No token received' });
+					return;
+				}
+				const email = await fetchEmailFromApi(result.token);
+				await chrome.storage.local.set({
+					authToken: result.token,
+					authExpiresAt: result.expiresAt,
+					accountEmail: email,
+					userEmail: email,
+				});
+				sendResponse({ email });
+			} catch (err) {
+				console.error('switchAccount error:', err);
+				sendResponse({ error: err.message });
+			}
+		})();
+		return true;
+	}
+});
