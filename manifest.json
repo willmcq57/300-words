@@ -8,8 +8,7 @@
 		"48": "icon48.png",
 		"128": "icon128.png"
 	},
-	"permissions": ["storage", "tabs", "identity"],
-	"host_permissions": ["https://mail.google.com/*"],
+	"permissions": ["storage", "identity"],
 	"oauth2": {
 		"client_id": "732085666543-u7mking33ls63k4f2a972d7mmeamjpcd.apps.googleusercontent.com",
 		"scopes": [

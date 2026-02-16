@@ -1,4 +1,4 @@
-# Email Manager — Chrome Extension (scaffold)
+# 300 Words Manager — Chrome Extension (scaffold)
 
 This repository contains a minimal scaffold for an email-manager Chrome extension.
 
