@@ -1,8 +1,49 @@
 // Background service worker: checks whether a list has been sent today,
 // records sends, and opens a compose window (mailto) as a basic send mechanism.
 
+// Helper to get auth token
+async function getAccountToken() {
+	return new Promise(resolve => {
+		chrome.identity.getAuthToken({ interactive: true }, token => {
+			resolve(token);
+		});
+	});
+}
+
+// Helper to get the authenticated user's email
+async function getUserEmail(token) {
+	try {
+		// Check cache first
+		const cached = await new Promise(resolve => {
+			chrome.storage.local.get(['userEmail'], res => resolve(res.userEmail));
+		});
+		if (cached) {
+			console.log('getUserEmail: returning cached:', cached);
+			return cached;
+		}
+		
+		console.log('getUserEmail: fetching from Gmail API');
+		// Fetch from Gmail API
+		const resp = await fetch('https://www.googleapis.com/gmail/v1/users/me/profile', {
+			headers: { Authorization: `Bearer ${token}` }
+		});
+		if (!resp.ok) throw new Error(`Gmail API error: ${resp.status} ${resp.statusText}`);
+		const data = await resp.json();
+		const email = data.emailAddress;
+		
+		console.log('getUserEmail: got email from API:', email);
+		// Cache it
+		chrome.storage.local.set({ userEmail: email });
+		return email;
+	} catch (err) {
+		console.error('getUserEmail error:', err);
+		throw err;
+	}
+}
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 	if (msg.action === 'sendToList') {
+		console.log('sendToList received:', msg);
 		const listId = msg.listId;
 		const subject = msg.subject;
 		const body = msg.body;
@@ -12,19 +53,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 			const list = lists.find(l => l.id === listId);
 
 			if (!list || !list.emails || list.emails.length === 0) {
+				console.error('List not found or no emails');
 				sendResponse({ error: 'No recipients found' });
 				return;
 			}
 
 			// Check if we received an email from any contact in this list today
-			chrome.identity.getAuthToken({ interactive: true }, async (token) => {
+			getAccountToken().then(async (token) => {
 				if (!token) {
+					console.error('No token');
 					sendResponse({ error: 'Auth failed' });
 					return;
 				}
 				try {
+					console.log('Checking if email received today...');
 					const emailResult = await hasReceivedEmailToday(token, list.emails);
 					if (emailResult.found) {
+						console.log('Email found already sent, offering reply');
 						sendResponse({ 
 							alreadySent: true, 
 							subject: emailResult.subject, 
@@ -35,13 +80,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 						return;
 					}
 					// Send the email
+					console.log('Sending email to list:', list.emails);
 					const recipients = list.emails.join(',');
 					await sendRawEmail(recipients, subject, body, token);
+					console.log('Email sent successfully');
 					sendResponse({ sent: true });
 				} catch (err) {
 					console.error('Error:', err);
 					sendResponse({ error: err.message });
 				}
+			}).catch(err => {
+				console.error('Auth error:', err);
+				sendResponse({ error: 'Authentication failed' });
 			});
 		});
 
@@ -77,8 +127,9 @@ async function hasReceivedEmailToday(token, contactEmails) {
 	};
 	
 	const contactEmailsLower = contactEmails.map(e => e.toLowerCase());
+	const userEmail = await getUserEmail(token);
 	
-	// Check each message: sender must be in list AND all recipients must be in list
+	// Check each message: sender must be in list AND user must be in recipients
 	for (const msg of messages) {
 		const msgResp = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, {
 			headers: { Authorization: `Bearer ${token}` }
@@ -100,12 +151,10 @@ async function hasReceivedEmailToday(token, contactEmails) {
 		// Extract all recipients from To header
 		const toEmails = extractEmails(toHeader);
 		
-		// Check if all recipients are in the contact list
-		const allRecipientsInList = toEmails.every(email => 
-			contactEmailsLower.includes(email)
-		);
+		// Check if user is one of the recipients
+		const userIsRecipient = toEmails.includes(userEmail.toLowerCase());
 		
-		if (allRecipientsInList && toEmails.length > 0) {
+		if (userIsRecipient && toEmails.length > 0) {
 			return {
 				found: true,
 				subject: subjectHeader,
@@ -121,14 +170,18 @@ async function hasReceivedEmailToday(token, contactEmails) {
 
 async function sendRawEmail(recipientsCsv, subject, body, token) {
 	if (!token) {
-		token = await new Promise((resolve, reject) => {
-			chrome.identity.getAuthToken({ interactive: true }, (t) => {
-				if (!t) reject(new Error('Auth failed'));
-				else resolve(t);
-			});
-		});
+		token = await getAccountToken();
+		if (!token) throw new Error('Auth failed');
 	}
-	const toHeader = recipientsCsv.split(',').map(e => e.trim()).join(', ');
+	
+	// Get the authenticated user's email and add to recipients
+	const userEmail = await getUserEmail(token);
+	const recipients = recipientsCsv.split(',').map(e => e.trim());
+	if (!recipients.includes(userEmail)) {
+		recipients.push(userEmail);
+	}
+	const toHeader = recipients.join(', ');
+	
 	const msg =
 		`To: ${toHeader}\r\n` +
 		`Subject: ${subject}\r\n` +
@@ -156,7 +209,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 		const messageId = msg.messageId;
 		const replyBody = msg.replyBody;
 		
-		chrome.identity.getAuthToken({ interactive: true }, async (token) => {
+		getAccountToken().then(async (token) => {
 			if (!token) {
 				sendResponse({ error: 'Auth failed' });
 				return;
@@ -168,6 +221,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 				console.error('Reply failed:', err);
 				sendResponse({ error: err.message });
 			}
+		}).catch(err => {
+			console.error('Auth error:', err);
+			sendResponse({ error: 'Authentication failed' });
 		});
 		
 		return true;

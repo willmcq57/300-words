@@ -19,13 +19,17 @@ async function init() {
 		if (!listId) return alert('Please select a list');
 		if (!subject) return alert('Please enter a subject');
 		if (!body) return alert('Please enter a body');
+		console.log('Sending message to background...');
 		chrome.runtime.sendMessage({ action: 'sendToList', subject, body, listId }, resp => {
+			console.log('Response received:', resp);
 			if (resp && resp.alreadySent) {
                 console.log('Email already received today:', resp);
                 console.log('Email body being sent for reply:', body);
 				showReplyDialog(resp, body);
 			} else if (resp && resp.sent) {
 				alert('Email sent successfully!');
+			} else if (resp && resp.error) {
+				alert('Error: ' + resp.error);
 			} else {
 				alert('Error sending email.');
 			}

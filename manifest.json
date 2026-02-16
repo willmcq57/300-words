@@ -1,8 +1,13 @@
 {
 	"manifest_version": 3,
-	"name": "Email Manager",
+	"name": "300 Words Manager",
 	"version": "0.1.0",
 	"description": "Send emails to preset contact lists and avoid duplicate sends per day.",
+	"icons": {
+		"16": "icon16.png",
+		"48": "icon48.png",
+		"128": "icon128.png"
+	},
 	"permissions": ["storage", "tabs", "identity"],
 	"host_permissions": ["https://mail.google.com/*"],
 	"oauth2": {
