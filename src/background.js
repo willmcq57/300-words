@@ -179,9 +179,10 @@ async function hasReceivedEmailToday(token, contactEmails) {
 	};
 	
 	const contactEmailsLower = contactEmails.map(e => e.toLowerCase());
-	const userEmail = await getUserEmail(token);
-	
-	// Check each message: sender must be in list AND user must be in recipients
+	const userEmail = (await getUserEmail(token)).toLowerCase();
+	const allowedEmails = new Set([...contactEmailsLower, userEmail]);
+
+	// Check each message: sender and ALL recipients must be in the list (+ user)
 	for (const msg of messages) {
 		const msgResp = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=full`, {
 			headers: { Authorization: `Bearer ${token}` }
@@ -192,29 +193,24 @@ async function hasReceivedEmailToday(token, contactEmails) {
 		const fromHeader = headers.find(h => h.name === 'From')?.value || '';
 		const subjectHeader = headers.find(h => h.name === 'Subject')?.value || '(no subject)';
 		const toHeader = headers.find(h => h.name === 'To')?.value || '';
-		
-		// Extract sender email
-		const senderEmails = extractEmails(fromHeader);
-		const senderEmail = senderEmails[0];
-		
-		// Check if sender is in contact list
+
+		// Sender must be in list
+		const senderEmail = extractEmails(fromHeader)[0];
 		if (!contactEmailsLower.includes(senderEmail)) continue;
-		
-		// Extract all recipients from To header
+
+		// Every recipient must be in the list or the user
 		const toEmails = extractEmails(toHeader);
-		
-		// Check if user is one of the recipients
-		const userIsRecipient = toEmails.includes(userEmail.toLowerCase());
-		
-		if (userIsRecipient && toEmails.length > 0) {
-			return {
-				found: true,
-				subject: subjectHeader,
-				sender: fromHeader,
-				to: toHeader,
-				messageId: msg.id
-			};
-		}
+		if (toEmails.length === 0) continue;
+		const allRecipientsInList = toEmails.every(e => allowedEmails.has(e));
+		if (!allRecipientsInList) continue;
+
+		return {
+			found: true,
+			subject: subjectHeader,
+			sender: fromHeader,
+			to: toHeader,
+			messageId: msg.id
+		};
 	}
 	
 	return { found: false };
