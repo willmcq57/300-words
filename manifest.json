@@ -1,0 +1,19 @@
+{
+	"manifest_version": 3,
+	"name": "Email Manager",
+	"version": "0.1.0",
+	"description": "Send emails to preset contact lists and avoid duplicate sends per day.",
+	"permissions": ["storage", "tabs", "identity"],
+	"host_permissions": ["https://mail.google.com/*"],
+	"oauth2": {
+		"client_id": "732085666543-u7mking33ls63k4f2a972d7mmeamjpcd.apps.googleusercontent.com",
+		"scopes": [
+			"https://www.googleapis.com/auth/gmail.send",
+			"https://www.googleapis.com/auth/gmail.readonly",
+			"https://www.googleapis.com/auth/userinfo.email"
+		]
+	},
+	"background": { "service_worker": "src/background.js" },
+	"action": { "default_popup": "src/popup.html" },
+	"options_page": "src/options.html"
+}

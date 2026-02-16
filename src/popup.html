@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>Email Manager — Popup</title>
+		<style>
+			* { margin: 0; padding: 0; box-sizing: border-box }
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+				width: 380px;
+				padding: 20px;
+				background: #f8f9fa;
+			}
+			h3 {
+				color: #2c3e50;
+				margin-bottom: 20px;
+				font-size: 18px;
+			}
+			label {
+				display: block;
+				margin-top: 12px;
+				margin-bottom: 6px;
+				color: #34495e;
+				font-weight: 500;
+				font-size: 13px;
+			}
+			input, select, textarea {
+				width: 100%;
+				padding: 10px 12px;
+				border: 1px solid #ddd;
+				border-radius: 6px;
+				font-family: inherit;
+				font-size: 13px;
+				background: white;
+			}
+			input:focus, select:focus, textarea:focus {
+				outline: none;
+				border-color: #3498db;
+				box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+			}
+			button {
+				margin-top: 16px;
+				padding: 11px 16px;
+				width: 100%;
+				border: none;
+				border-radius: 6px;
+				background: #3498db;
+				color: white;
+				font-weight: 600;
+				cursor: pointer;
+				font-size: 13px;
+				transition: background 0.2s;
+			}
+			button:hover {
+				background: #2980b9;
+			}
+			button:active {
+				opacity: 0.9;
+			}
+		</style>
+	</head>
+	<body>
+		<h3>📧 Email Manager</h3>
+		<label>Subject</label>
+		<input id="subject" placeholder="Enter subject" />
+		<label>Message</label>
+		<input id="body" placeholder="Enter message body" />
+		<label for="listSelect">Select Contact List</label>
+		<select id="listSelect">
+			<option value="">-- no lists available --</option>
+		</select>
+		<button id="sendBtn">Send / Check</button>
+		<script type="module" src="./popup.js"></script>
+	</body>
+</html>
