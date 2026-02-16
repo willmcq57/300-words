@@ -31,7 +31,7 @@
 				font-weight: 600;
 				font-size: 13px;
 			}
-			input, textarea {
+			input {
 				width: 100%;
 				padding: 11px 12px;
 				border: 1px solid #ddd;
@@ -41,14 +41,10 @@
 				background: white;
 				margin-bottom: 4px;
 			}
-			input:focus, textarea:focus {
+			input:focus {
 				outline: none;
 				border-color: #3498db;
 				box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-			}
-			textarea {
-				resize: vertical;
-				min-height: 90px;
 			}
 			.form-section {
 				background: white;
@@ -56,6 +52,32 @@
 				border-radius: 8px;
 				margin-bottom: 24px;
 				box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+			}
+			.form-section.editing {
+				border: 2px solid #3498db;
+			}
+			.form-title {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			.form-title h3 {
+				margin: 0;
+			}
+			#cancelEditBtn {
+				display: none;
+				padding: 6px 14px;
+				border: 1px solid #ddd;
+				border-radius: 6px;
+				background: white;
+				color: #7f8c8d;
+				font-size: 12px;
+				font-weight: 600;
+				cursor: pointer;
+			}
+			#cancelEditBtn:hover {
+				background: #f8f9fa;
+				border-color: #bbb;
 			}
 			.button-group {
 				display: flex;
@@ -71,10 +93,10 @@
 				cursor: pointer;
 				font-size: 13px;
 				transition: background 0.2s;
-				flex: 1;
 			}
 			#saveBtn {
 				background: #27ae60;
+				flex: 1;
 			}
 			#saveBtn:hover {
 				background: #229954;
@@ -85,6 +107,81 @@
 			#clearBtn:hover {
 				background: #c0392b;
 			}
+
+			/* --- Email chip input --- */
+			.email-input-wrap {
+				border: 1px solid #ddd;
+				border-radius: 6px;
+				background: white;
+				padding: 6px 8px;
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+				cursor: text;
+				min-height: 44px;
+				align-items: center;
+				transition: border-color 0.2s, box-shadow 0.2s;
+			}
+			.email-input-wrap.focused {
+				border-color: #3498db;
+				box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+			}
+			.email-input-wrap input {
+				border: none;
+				outline: none;
+				padding: 4px 0;
+				font-size: 13px;
+				flex: 1;
+				min-width: 180px;
+				margin: 0;
+				box-shadow: none;
+			}
+			.email-input-wrap input:focus {
+				box-shadow: none;
+			}
+			.chip {
+				display: inline-flex;
+				align-items: center;
+				background: #eaf2fb;
+				color: #2c3e50;
+				border: 1px solid #c6ddf3;
+				border-radius: 20px;
+				padding: 3px 8px 3px 10px;
+				font-size: 12px;
+				gap: 5px;
+				animation: chipIn 0.15s ease-out;
+			}
+			@keyframes chipIn {
+				from { transform: scale(0.85); opacity: 0; }
+				to   { transform: scale(1);    opacity: 1; }
+			}
+			.chip .remove {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 16px;
+				height: 16px;
+				border-radius: 50%;
+				background: transparent;
+				color: #7f8c8d;
+				font-size: 13px;
+				line-height: 1;
+				cursor: pointer;
+				transition: background 0.15s, color 0.15s;
+				border: none;
+				padding: 0;
+			}
+			.chip .remove:hover {
+				background: #d9534f;
+				color: white;
+			}
+			.email-hint {
+				font-size: 11px;
+				color: #95a5a6;
+				margin-top: 4px;
+			}
+
+			/* --- List cards --- */
 			.list-item {
 				background: white;
 				border: 1px solid #ecf0f1;
@@ -93,45 +190,95 @@
 				margin-bottom: 12px;
 				box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 			}
+			.list-item .list-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: flex-start;
+				margin-bottom: 8px;
+			}
 			.list-item h4 {
 				color: #2c3e50;
-				margin-bottom: 8px;
 				font-size: 14px;
 			}
-			.list-item p {
-				color: #7f8c8d;
-				font-size: 12px;
-				line-height: 1.5;
-				word-break: break-all;
+			.list-item .list-emails {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 5px;
 			}
-			.list-item button {
-				margin-top: 8px;
-				padding: 6px 12px;
+			.list-item .email-tag {
+				background: #f0f0f0;
+				color: #555;
+				border-radius: 12px;
+				padding: 2px 10px;
+				font-size: 12px;
+			}
+			.list-actions {
+				display: flex;
+				gap: 6px;
+				flex-shrink: 0;
+			}
+			.list-actions button {
+				padding: 5px 12px;
+				font-size: 12px;
+				border-radius: 5px;
+			}
+			.btn-edit {
+				background: #3498db;
+			}
+			.btn-edit:hover {
+				background: #2980b9;
+			}
+			.btn-delete {
 				background: #e74c3c;
-				font-size: 12px;
 			}
-			.list-item button:hover {
+			.btn-delete:hover {
 				background: #c0392b;
+			}
+			.empty-state {
+				color: #7f8c8d;
+				font-size: 13px;
+				text-align: center;
+				padding: 20px;
+			}
+			.lists-header {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+			}
+			.lists-header h3 {
+				margin: 0;
+			}
+			#clearBtn {
+				padding: 5px 12px;
+				font-size: 12px;
 			}
 		</style>
 	</head>
 	<body>
-		<h2>📧 300 Words Manager Settings</h2>
-		
-		<div class="form-section">
-			<h3>Create New List</h3>
-			<p style="font-size: 12px; color: #27ae60; margin-bottom: 12px; background: #ecf8f3; padding: 10px; border-radius: 4px; border-left: 3px solid #27ae60">💡 <strong>Your email will automatically be included</strong> in all emails sent. We send from your signed-in Gmail account.</p>
+		<h2>300 Words Manager Settings</h2>
+
+		<div class="form-section" id="formSection">
+			<div class="form-title">
+				<h3 id="formHeading">Create New List</h3>
+				<button id="cancelEditBtn">Cancel</button>
+			</div>
+			<p style="font-size: 12px; color: #27ae60; margin: 12px 0; background: #ecf8f3; padding: 10px; border-radius: 4px; border-left: 3px solid #27ae60">Your email will automatically be included in all emails sent.</p>
 			<label>List Name</label>
-			<input id="name" placeholder="" />
-			<label>Emails (comma separated)</label>
-			<textarea id="emails" placeholder="maro.itoje@example.com, bobthebuilder@example.com, gardner.minshew.luvr@example.com"></textarea>
+			<input id="name" placeholder="e.g. Family, Work friends" />
+			<label>Emails</label>
+			<div class="email-input-wrap" id="emailWrap">
+				<input id="emailInput" placeholder="Type an email and press Enter" />
+			</div>
+			<p class="email-hint">Press <strong>Enter</strong> or <strong>comma</strong> to add. Click the x to remove.</p>
 			<div class="button-group">
-				<button id="saveBtn">✓ Save List</button>
-				<button id="clearBtn">✕ Clear All</button>
+				<button id="saveBtn">Save List</button>
 			</div>
 		</div>
 
-		<h3>Your Lists</h3>
+		<div class="lists-header">
+			<h3>Your Lists</h3>
+			<button id="clearBtn">Clear All</button>
+		</div>
 		<div id="lists"></div>
 
 		<script type="module" src="./options.js"></script>
